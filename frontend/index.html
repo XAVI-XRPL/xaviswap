@@ -1,0 +1,1029 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XaviSwap — The DEX for XRPL EVM</title>
+    <link rel="icon" type="image/png" href="xavi-logo.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/ethers@6.9.0/dist/ethers.umd.min.js"></script>
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-surface: #12121a;
+            --bg-card: #1a1a26;
+            --bg-elevated: #222230;
+            --bg-input: #0d0d14;
+            --primary: #8B5CF6;
+            --primary-light: #A855F7;
+            --primary-dark: #6D28D9;
+            --primary-glow: rgba(139, 92, 246, 0.4);
+            --accent: #C084FC;
+            --swap-blue: #3B82F6;
+            --swap-pink: #EC4899;
+            --text-primary: #F8FAFC;
+            --text-secondary: #CBD5E1;
+            --text-muted: #64748B;
+            --border: #2D2D3D;
+            --border-light: #3D3D50;
+            --success: #22C55E;
+            --warning: #F59E0B;
+            --error: #EF4444;
+            --gradient-swap: linear-gradient(135deg, var(--swap-blue) 0%, var(--swap-pink) 100%);
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+        
+        .bg-grid {
+            position: fixed;
+            inset: 0;
+            background-image: 
+                radial-gradient(ellipse 80% 50% at 50% -20%, rgba(139, 92, 246, 0.15), transparent);
+            pointer-events: none;
+        }
+        
+        nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 16px 24px;
+            background: rgba(10, 10, 15, 0.8);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+            z-index: 100;
+        }
+        
+        .nav-inner {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            color: var(--text-primary);
+        }
+        
+        .logo img { height: 36px; }
+        .logo-text { font-weight: 800; font-size: 22px; }
+        .logo-text span { 
+            background: var(--gradient-swap);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .nav-tabs {
+            display: flex;
+            gap: 8px;
+            background: var(--bg-surface);
+            padding: 4px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+        }
+        
+        .nav-tab {
+            padding: 10px 20px;
+            background: none;
+            border: none;
+            border-radius: 8px;
+            color: var(--text-muted);
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .nav-tab:hover { color: var(--text-primary); }
+        .nav-tab.active { background: var(--primary); color: white; }
+        
+        .nav-right { display: flex; gap: 12px; align-items: center; }
+        
+        .balance-display {
+            padding: 10px 16px;
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+        }
+        
+        .connect-btn {
+            padding: 12px 24px;
+            background: var(--gradient-swap);
+            border: none;
+            border-radius: 12px;
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .connect-btn:hover { transform: scale(1.02); }
+        .connect-btn.connected { background: var(--bg-surface); border: 1px solid var(--success); }
+        
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            padding: 120px 24px 60px;
+            position: relative;
+            z-index: 1;
+        }
+        
+        /* Swap Card */
+        .swap-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 16px;
+        }
+        
+        .swap-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 8px 16px;
+        }
+        
+        .swap-title {
+            font-size: 18px;
+            font-weight: 700;
+        }
+        
+        .settings-btn {
+            width: 36px;
+            height: 36px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: var(--text-muted);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            transition: all 0.2s;
+        }
+        
+        .settings-btn:hover { color: var(--text-primary); border-color: var(--primary); }
+        
+        /* Token Input */
+        .token-input-box {
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 4px;
+            transition: border-color 0.3s;
+        }
+        
+        .token-input-box:focus-within {
+            border-color: var(--primary);
+        }
+        
+        .token-input-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+        
+        .token-input-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .token-amount {
+            flex: 1;
+            background: none;
+            border: none;
+            color: var(--text-primary);
+            font-size: 28px;
+            font-weight: 600;
+            font-family: 'JetBrains Mono', monospace;
+            outline: none;
+            width: 100%;
+        }
+        
+        .token-amount::placeholder { color: var(--text-muted); }
+        
+        .token-select {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            min-width: 120px;
+        }
+        
+        .token-select:hover { border-color: var(--primary); }
+        
+        .token-icon {
+            width: 28px;
+            height: 28px;
+            background: var(--gradient-swap);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: 700;
+        }
+        
+        .token-symbol {
+            font-weight: 600;
+            font-size: 16px;
+        }
+        
+        .token-select-arrow {
+            color: var(--text-muted);
+            margin-left: auto;
+        }
+        
+        /* Swap Arrow */
+        .swap-arrow-container {
+            display: flex;
+            justify-content: center;
+            margin: -12px 0;
+            position: relative;
+            z-index: 10;
+        }
+        
+        .swap-arrow-btn {
+            width: 40px;
+            height: 40px;
+            background: var(--bg-card);
+            border: 4px solid var(--bg-surface);
+            border-radius: 12px;
+            color: var(--text-primary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            transition: all 0.3s;
+        }
+        
+        .swap-arrow-btn:hover {
+            background: var(--primary);
+            transform: rotate(180deg);
+        }
+        
+        /* Price Info */
+        .price-info {
+            padding: 12px 16px;
+            background: var(--bg-card);
+            border-radius: 12px;
+            margin-top: 12px;
+        }
+        
+        .price-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            margin-bottom: 8px;
+        }
+        
+        .price-row:last-child { margin-bottom: 0; }
+        .price-row-label { color: var(--text-muted); }
+        .price-row-value { font-weight: 500; }
+        .price-impact-low { color: var(--success); }
+        .price-impact-medium { color: var(--warning); }
+        .price-impact-high { color: var(--error); }
+        
+        /* Swap Button */
+        .swap-btn {
+            width: 100%;
+            padding: 18px;
+            margin-top: 16px;
+            background: var(--gradient-swap);
+            border: none;
+            border-radius: 16px;
+            color: white;
+            font-size: 18px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .swap-btn:hover:not(:disabled) { transform: scale(1.02); opacity: 0.95; }
+        .swap-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        
+        .swap-btn.approve { background: var(--warning); }
+        .swap-btn.error { background: var(--error); }
+        
+        /* Settings Modal */
+        .settings-modal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 24px;
+            width: 360px;
+            z-index: 200;
+            display: none;
+        }
+        
+        .settings-modal.show { display: block; }
+        
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 199;
+            display: none;
+        }
+        
+        .modal-overlay.show { display: block; }
+        
+        .settings-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 20px;
+        }
+        
+        .settings-group {
+            margin-bottom: 20px;
+        }
+        
+        .settings-label {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-bottom: 10px;
+        }
+        
+        .slippage-options {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .slippage-btn {
+            flex: 1;
+            padding: 10px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: var(--text-secondary);
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .slippage-btn:hover { border-color: var(--primary); }
+        .slippage-btn.active { background: var(--primary); border-color: var(--primary); color: white; }
+        
+        .custom-slippage {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        
+        .custom-slippage input {
+            flex: 1;
+            padding: 10px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: var(--text-primary);
+            font-size: 14px;
+            outline: none;
+        }
+        
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            z-index: 1000;
+            opacity: 0;
+            transition: all 0.3s;
+        }
+        
+        .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+        .toast.success { border-color: var(--success); }
+        .toast.error { border-color: var(--error); }
+        
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        /* Stats Bar */
+        .stats-bar {
+            display: flex;
+            justify-content: center;
+            gap: 32px;
+            padding: 16px;
+            margin-bottom: 24px;
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+        
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .stat-value {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+        
+        /* Liquidity Page */
+        .page { display: none; }
+        .page.active { display: block; }
+        
+        .liquidity-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 24px;
+            margin-bottom: 16px;
+        }
+        
+        .lp-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .lp-title { font-size: 18px; font-weight: 700; }
+        
+        .add-lp-btn {
+            padding: 10px 20px;
+            background: var(--primary);
+            border: none;
+            border-radius: 10px;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        
+        .your-positions {
+            border-top: 1px solid var(--border);
+            padding-top: 20px;
+        }
+        
+        .positions-title {
+            font-size: 14px;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+        }
+        
+        .no-positions {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-muted);
+        }
+        
+        .position-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px;
+            background: var(--bg-card);
+            border-radius: 12px;
+            margin-bottom: 8px;
+        }
+        
+        .position-pair {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+        }
+        
+        @media (max-width: 600px) {
+            .nav-tabs { display: none; }
+            .stats-bar { flex-direction: column; align-items: center; gap: 12px; }
+            .balance-display { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-grid"></div>
+    
+    <nav>
+        <div class="nav-inner">
+            <a href="https://xavi-site.vercel.app" class="logo">
+                <img src="xavi-logo.png" alt="XAVI">
+                <span class="logo-text">Xavi<span>Swap</span></span>
+            </a>
+            <div class="nav-tabs">
+                <button class="nav-tab active" onclick="showPage('swap')">Swap</button>
+                <button class="nav-tab" onclick="showPage('liquidity')">Liquidity</button>
+                <button class="nav-tab" onclick="showPage('pools')">Pools</button>
+            </div>
+            <div class="nav-right">
+                <div class="balance-display" id="balanceDisplay">-</div>
+                <button class="connect-btn" id="connectBtn" onclick="connectWallet()">Connect Wallet</button>
+            </div>
+        </div>
+    </nav>
+    
+    <div class="container">
+        <div class="stats-bar">
+            <div class="stat-item">TVL: <span class="stat-value">$0</span></div>
+            <div class="stat-item">24h Volume: <span class="stat-value">$0</span></div>
+            <div class="stat-item">Pairs: <span class="stat-value" id="pairsCount">0</span></div>
+        </div>
+        
+        <!-- Swap Page -->
+        <div class="page active" id="swapPage">
+            <div class="swap-card">
+                <div class="swap-header">
+                    <h2 class="swap-title">Swap</h2>
+                    <button class="settings-btn" onclick="openSettings()">⚙️</button>
+                </div>
+                
+                <div class="token-input-box" id="inputBox">
+                    <div class="token-input-header">
+                        <span>You pay</span>
+                        <span>Balance: <span id="inputBalance">0</span></span>
+                    </div>
+                    <div class="token-input-row">
+                        <input type="number" class="token-amount" id="inputAmount" placeholder="0" oninput="calculateOutput()">
+                        <div class="token-select" onclick="openTokenSelect('input')">
+                            <div class="token-icon" id="inputIcon">X</div>
+                            <span class="token-symbol" id="inputSymbol">XRP</span>
+                            <span class="token-select-arrow">▼</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="swap-arrow-container">
+                    <button class="swap-arrow-btn" onclick="switchTokens()">↓</button>
+                </div>
+                
+                <div class="token-input-box" id="outputBox">
+                    <div class="token-input-header">
+                        <span>You receive</span>
+                        <span>Balance: <span id="outputBalance">0</span></span>
+                    </div>
+                    <div class="token-input-row">
+                        <input type="number" class="token-amount" id="outputAmount" placeholder="0" readonly>
+                        <div class="token-select" onclick="openTokenSelect('output')">
+                            <div class="token-icon" id="outputIcon">W</div>
+                            <span class="token-symbol" id="outputSymbol">WXRP</span>
+                            <span class="token-select-arrow">▼</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="price-info" id="priceInfo" style="display: none;">
+                    <div class="price-row">
+                        <span class="price-row-label">Rate</span>
+                        <span class="price-row-value" id="swapRate">-</span>
+                    </div>
+                    <div class="price-row">
+                        <span class="price-row-label">Price Impact</span>
+                        <span class="price-row-value price-impact-low" id="priceImpact">< 0.01%</span>
+                    </div>
+                    <div class="price-row">
+                        <span class="price-row-label">Minimum received</span>
+                        <span class="price-row-value" id="minReceived">-</span>
+                    </div>
+                    <div class="price-row">
+                        <span class="price-row-label">LP Fee (0.3%)</span>
+                        <span class="price-row-value" id="lpFee">-</span>
+                    </div>
+                </div>
+                
+                <button class="swap-btn" id="swapBtn" onclick="executeSwap()" disabled>
+                    Connect Wallet
+                </button>
+            </div>
+        </div>
+        
+        <!-- Liquidity Page -->
+        <div class="page" id="liquidityPage">
+            <div class="liquidity-card">
+                <div class="lp-header">
+                    <h2 class="lp-title">Your Liquidity</h2>
+                    <button class="add-lp-btn" onclick="openAddLiquidity()">+ Add Liquidity</button>
+                </div>
+                <div class="your-positions">
+                    <div class="positions-title">Your positions</div>
+                    <div class="no-positions" id="noPositions">
+                        No liquidity positions found
+                    </div>
+                    <div id="positionsList"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Pools Page -->
+        <div class="page" id="poolsPage">
+            <div class="liquidity-card">
+                <h2 class="lp-title" style="margin-bottom: 20px;">All Pools</h2>
+                <div id="poolsList">
+                    <div class="no-positions">Loading pools...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Settings Modal -->
+    <div class="modal-overlay" id="modalOverlay" onclick="closeSettings()"></div>
+    <div class="settings-modal" id="settingsModal">
+        <h3 class="settings-title">Settings</h3>
+        <div class="settings-group">
+            <div class="settings-label">Slippage Tolerance</div>
+            <div class="slippage-options">
+                <button class="slippage-btn" onclick="setSlippage(0.5)">0.5%</button>
+                <button class="slippage-btn active" onclick="setSlippage(1)">1%</button>
+                <button class="slippage-btn" onclick="setSlippage(2)">2%</button>
+            </div>
+            <div class="custom-slippage">
+                <input type="number" placeholder="Custom" id="customSlippage" oninput="setCustomSlippage()">
+                <span>%</span>
+            </div>
+        </div>
+        <div class="settings-group">
+            <div class="settings-label">Transaction Deadline</div>
+            <div class="custom-slippage">
+                <input type="number" value="20" id="deadline">
+                <span>minutes</span>
+            </div>
+        </div>
+    </div>
+    
+    <div class="toast" id="toast">
+        <span id="toastIcon">✓</span>
+        <span id="toastMsg">Success!</span>
+    </div>
+
+    <script>
+        // Contract addresses
+        const WXRP_ADDRESS = '0x6F177EC261E7ebd58C488a8a807eb50190c00c9d';
+        const FACTORY_ADDRESS = '0x648Bd4cD5E2799BdbDF6494a8fb05C1169A75BA2';
+        const ROUTER_ADDRESS = '0xf3829D62B24Ed8f43d1a4F25f5c14b3f41D794E8';
+        const CHAIN_ID = 1440000;
+        const RPC_URL = 'https://rpc.xrplevm.org';
+        
+        const ROUTER_ABI = [
+            'function swapExactXRPForTokens(uint256 amountOutMin, address[] calldata path, address to, uint256 deadline) external payable returns (uint256[] memory amounts)',
+            'function swapExactTokensForXRP(uint256 amountIn, uint256 amountOutMin, address[] calldata path, address to, uint256 deadline) external returns (uint256[] memory amounts)',
+            'function swapExactTokensForTokens(uint256 amountIn, uint256 amountOutMin, address[] calldata path, address to, uint256 deadline) external returns (uint256[] memory amounts)',
+            'function getAmountsOut(uint256 amountIn, address[] calldata path) external view returns (uint256[] memory amounts)',
+            'function addLiquidityXRP(address token, uint256 amountTokenDesired, uint256 amountTokenMin, uint256 amountXRPMin, address to, uint256 deadline) external payable returns (uint256 amountToken, uint256 amountXRP, uint256 liquidity)'
+        ];
+        
+        const WXRP_ABI = [
+            'function deposit() external payable',
+            'function withdraw(uint256 wad) external',
+            'function balanceOf(address) external view returns (uint256)',
+            'function approve(address spender, uint256 amount) external returns (bool)'
+        ];
+        
+        const FACTORY_ABI = [
+            'function allPairsLength() external view returns (uint256)',
+            'function getPair(address, address) external view returns (address)'
+        ];
+        
+        let provider, signer, router, wxrp, factory, userAddress;
+        let slippage = 1; // 1%
+        let deadline = 20; // 20 minutes
+        
+        // Token list
+        const TOKENS = {
+            'XRP': { symbol: 'XRP', address: null, icon: 'X', native: true },
+            'WXRP': { symbol: 'WXRP', address: WXRP_ADDRESS, icon: 'W' }
+        };
+        
+        let inputToken = TOKENS.XRP;
+        let outputToken = TOKENS.WXRP;
+        
+        async function connectWallet() {
+            if (!window.ethereum) {
+                showToast('Please install MetaMask!', 'error');
+                return;
+            }
+            
+            try {
+                const chainIdHex = '0x' + CHAIN_ID.toString(16);
+                try {
+                    await window.ethereum.request({
+                        method: 'wallet_switchEthereumChain',
+                        params: [{ chainId: chainIdHex }],
+                    });
+                } catch (switchError) {
+                    if (switchError.code === 4902) {
+                        await window.ethereum.request({
+                            method: 'wallet_addEthereumChain',
+                            params: [{
+                                chainId: chainIdHex,
+                                chainName: 'XRPL EVM Sidechain',
+                                nativeCurrency: { name: 'XRP', symbol: 'XRP', decimals: 18 },
+                                rpcUrls: [RPC_URL],
+                                blockExplorerUrls: ['https://explorer.xrplevm.org'],
+                            }],
+                        });
+                    }
+                }
+                
+                provider = new ethers.BrowserProvider(window.ethereum);
+                signer = await provider.getSigner();
+                userAddress = await signer.getAddress();
+                
+                router = new ethers.Contract(ROUTER_ADDRESS, ROUTER_ABI, signer);
+                wxrp = new ethers.Contract(WXRP_ADDRESS, WXRP_ABI, signer);
+                factory = new ethers.Contract(FACTORY_ADDRESS, FACTORY_ABI, signer);
+                
+                const btn = document.getElementById('connectBtn');
+                btn.innerHTML = `${userAddress.slice(0, 6)}...${userAddress.slice(-4)}`;
+                btn.classList.add('connected');
+                
+                document.getElementById('swapBtn').disabled = false;
+                document.getElementById('swapBtn').textContent = 'Enter an amount';
+                
+                updateBalances();
+                loadPools();
+                showToast('Wallet connected!', 'success');
+                
+            } catch (err) {
+                console.error(err);
+                showToast('Failed to connect', 'error');
+            }
+        }
+        
+        async function updateBalances() {
+            if (!userAddress) return;
+            
+            const xrpBalance = await provider.getBalance(userAddress);
+            document.getElementById('balanceDisplay').textContent = 
+                parseFloat(ethers.formatEther(xrpBalance)).toFixed(2) + ' XRP';
+            
+            if (inputToken.native) {
+                document.getElementById('inputBalance').textContent = 
+                    parseFloat(ethers.formatEther(xrpBalance)).toFixed(4);
+            } else {
+                const token = new ethers.Contract(inputToken.address, WXRP_ABI, provider);
+                const bal = await token.balanceOf(userAddress);
+                document.getElementById('inputBalance').textContent = 
+                    parseFloat(ethers.formatEther(bal)).toFixed(4);
+            }
+            
+            if (outputToken.native) {
+                document.getElementById('outputBalance').textContent = 
+                    parseFloat(ethers.formatEther(xrpBalance)).toFixed(4);
+            } else {
+                const token = new ethers.Contract(outputToken.address, WXRP_ABI, provider);
+                const bal = await token.balanceOf(userAddress);
+                document.getElementById('outputBalance').textContent = 
+                    parseFloat(ethers.formatEther(bal)).toFixed(4);
+            }
+        }
+        
+        async function calculateOutput() {
+            const inputAmount = document.getElementById('inputAmount').value;
+            if (!inputAmount || inputAmount <= 0) {
+                document.getElementById('outputAmount').value = '';
+                document.getElementById('priceInfo').style.display = 'none';
+                if (userAddress) {
+                    document.getElementById('swapBtn').textContent = 'Enter an amount';
+                }
+                return;
+            }
+            
+            // For XRP <-> WXRP, it's 1:1
+            if ((inputToken.native && outputToken.address === WXRP_ADDRESS) ||
+                (inputToken.address === WXRP_ADDRESS && outputToken.native)) {
+                document.getElementById('outputAmount').value = inputAmount;
+                document.getElementById('priceInfo').style.display = 'block';
+                document.getElementById('swapRate').textContent = '1 XRP = 1 WXRP';
+                document.getElementById('priceImpact').textContent = '0%';
+                document.getElementById('minReceived').textContent = inputAmount + ' ' + outputToken.symbol;
+                document.getElementById('lpFee').textContent = '0 ' + inputToken.symbol;
+                
+                if (userAddress) {
+                    document.getElementById('swapBtn').textContent = inputToken.native ? 'Wrap XRP' : 'Unwrap WXRP';
+                    document.getElementById('swapBtn').disabled = false;
+                }
+                return;
+            }
+            
+            // For other pairs, use router
+            try {
+                const amountIn = ethers.parseEther(inputAmount);
+                const path = [
+                    inputToken.native ? WXRP_ADDRESS : inputToken.address,
+                    outputToken.native ? WXRP_ADDRESS : outputToken.address
+                ];
+                
+                const amounts = await router.getAmountsOut(amountIn, path);
+                const amountOut = ethers.formatEther(amounts[1]);
+                
+                document.getElementById('outputAmount').value = parseFloat(amountOut).toFixed(6);
+                document.getElementById('priceInfo').style.display = 'block';
+                
+                const rate = parseFloat(amountOut) / parseFloat(inputAmount);
+                document.getElementById('swapRate').textContent = `1 ${inputToken.symbol} = ${rate.toFixed(6)} ${outputToken.symbol}`;
+                
+                const minOut = parseFloat(amountOut) * (1 - slippage / 100);
+                document.getElementById('minReceived').textContent = minOut.toFixed(6) + ' ' + outputToken.symbol;
+                
+                const fee = parseFloat(inputAmount) * 0.003;
+                document.getElementById('lpFee').textContent = fee.toFixed(6) + ' ' + inputToken.symbol;
+                
+                if (userAddress) {
+                    document.getElementById('swapBtn').textContent = 'Swap';
+                    document.getElementById('swapBtn').disabled = false;
+                }
+                
+            } catch (err) {
+                console.error('Quote error:', err);
+                document.getElementById('outputAmount').value = '';
+                if (userAddress) {
+                    document.getElementById('swapBtn').textContent = 'Insufficient liquidity';
+                    document.getElementById('swapBtn').disabled = true;
+                }
+            }
+        }
+        
+        function switchTokens() {
+            const temp = inputToken;
+            inputToken = outputToken;
+            outputToken = temp;
+            
+            document.getElementById('inputSymbol').textContent = inputToken.symbol;
+            document.getElementById('inputIcon').textContent = inputToken.icon;
+            document.getElementById('outputSymbol').textContent = outputToken.symbol;
+            document.getElementById('outputIcon').textContent = outputToken.icon;
+            
+            const inputVal = document.getElementById('inputAmount').value;
+            const outputVal = document.getElementById('outputAmount').value;
+            document.getElementById('inputAmount').value = outputVal;
+            
+            updateBalances();
+            calculateOutput();
+        }
+        
+        async function executeSwap() {
+            const inputAmount = document.getElementById('inputAmount').value;
+            if (!inputAmount || inputAmount <= 0) return;
+            
+            const btn = document.getElementById('swapBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<div class="spinner" style="display:inline-block;width:16px;height:16px;margin-right:8px;vertical-align:middle;"></div>Swapping...';
+            
+            try {
+                const amountIn = ethers.parseEther(inputAmount);
+                const deadlineTime = Math.floor(Date.now() / 1000) + (deadline * 60);
+                
+                let tx;
+                
+                // XRP -> WXRP (Wrap)
+                if (inputToken.native && outputToken.address === WXRP_ADDRESS) {
+                    tx = await wxrp.deposit({ value: amountIn });
+                }
+                // WXRP -> XRP (Unwrap)
+                else if (inputToken.address === WXRP_ADDRESS && outputToken.native) {
+                    tx = await wxrp.withdraw(amountIn);
+                }
+                // XRP -> Token
+                else if (inputToken.native) {
+                    const path = [WXRP_ADDRESS, outputToken.address];
+                    const amounts = await router.getAmountsOut(amountIn, path);
+                    const minOut = amounts[1] * BigInt(100 - slippage) / 100n;
+                    tx = await router.swapExactXRPForTokens(minOut, path, userAddress, deadlineTime, { value: amountIn });
+                }
+                // Token -> XRP
+                else if (outputToken.native) {
+                    const path = [inputToken.address, WXRP_ADDRESS];
+                    const amounts = await router.getAmountsOut(amountIn, path);
+                    const minOut = amounts[1] * BigInt(100 - slippage) / 100n;
+                    tx = await router.swapExactTokensForXRP(amountIn, minOut, path, userAddress, deadlineTime);
+                }
+                // Token -> Token
+                else {
+                    const path = [inputToken.address, outputToken.address];
+                    const amounts = await router.getAmountsOut(amountIn, path);
+                    const minOut = amounts[1] * BigInt(100 - slippage) / 100n;
+                    tx = await router.swapExactTokensForTokens(amountIn, minOut, path, userAddress, deadlineTime);
+                }
+                
+                btn.innerHTML = '<div class="spinner" style="display:inline-block;width:16px;height:16px;margin-right:8px;vertical-align:middle;"></div>Confirming...';
+                await tx.wait();
+                
+                showToast('Swap successful! 🎉', 'success');
+                document.getElementById('inputAmount').value = '';
+                document.getElementById('outputAmount').value = '';
+                document.getElementById('priceInfo').style.display = 'none';
+                updateBalances();
+                
+            } catch (err) {
+                console.error(err);
+                showToast('Swap failed: ' + (err.reason || err.message), 'error');
+            }
+            
+            btn.disabled = false;
+            btn.textContent = 'Swap';
+        }
+        
+        async function loadPools() {
+            try {
+                const count = await factory.allPairsLength();
+                document.getElementById('pairsCount').textContent = count.toString();
+            } catch (err) {
+                console.error('Failed to load pools:', err);
+            }
+        }
+        
+        function showPage(page) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById(page + 'Page').classList.add('active');
+            document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+        }
+        
+        function openSettings() {
+            document.getElementById('modalOverlay').classList.add('show');
+            document.getElementById('settingsModal').classList.add('show');
+        }
+        
+        function closeSettings() {
+            document.getElementById('modalOverlay').classList.remove('show');
+            document.getElementById('settingsModal').classList.remove('show');
+        }
+        
+        function setSlippage(value) {
+            slippage = value;
+            document.querySelectorAll('.slippage-btn').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById('customSlippage').value = '';
+            calculateOutput();
+        }
+        
+        function setCustomSlippage() {
+            const custom = document.getElementById('customSlippage').value;
+            if (custom && custom > 0) {
+                slippage = parseFloat(custom);
+                document.querySelectorAll('.slippage-btn').forEach(b => b.classList.remove('active'));
+                calculateOutput();
+            }
+        }
+        
+        function openTokenSelect(type) {
+            // TODO: Token selector modal
+            showToast('Token selector coming soon', 'success');
+        }
+        
+        function openAddLiquidity() {
+            showToast('Add liquidity coming soon', 'success');
+        }
+        
+        function showToast(msg, type = 'success') {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastIcon').textContent = type === 'success' ? '✓' : '✗';
+            document.getElementById('toastMsg').textContent = msg;
+            toast.className = 'toast ' + type + ' show';
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+        
+        // Init
+        if (window.ethereum?.selectedAddress) connectWallet();
+    </script>
+</body>
+</html>
