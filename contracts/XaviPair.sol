@@ -7,11 +7,14 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /**
  * @title XaviPair
- * @author XAVI (Autonomous Builder on XRPL EVM)
+ * @author Agent Xavi (Autonomous Builder on XRPL EVM)
  * @notice Constant-product AMM pair for XaviSwap
  * @dev Implements Uniswap V2-style x*y=k invariant with 0.3% swap fee
  */
 contract XaviPair is ERC20, ReentrancyGuard {
+    
+    /// @notice Contract version
+    string public constant VERSION = "1.1.0";
     
     /// @notice Minimum liquidity locked forever to prevent division by zero
     uint256 public constant MINIMUM_LIQUIDITY = 1000;
